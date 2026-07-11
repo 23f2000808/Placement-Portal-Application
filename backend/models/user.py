@@ -1,0 +1,26 @@
+from extensions import db, login_manager
+from flask_login import UserMixin
+
+
+class User(db.Model, UserMixin):
+
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    password = db.Column(db.String(200), nullable=False)
+
+    role = db.Column(db.String(20), nullable=False)
+
+    is_active = db.Column(db.Boolean, default=True)
+
+    student = db.relationship("Student", backref="user", uselist=False)
+
+    company = db.relationship("Company", backref="user", uselist=False)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))

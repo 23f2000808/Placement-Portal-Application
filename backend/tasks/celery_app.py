@@ -16,7 +16,8 @@ celery = Celery(
     backend="redis://localhost:6379/0",
     include=[
         "tasks.reminder_tasks",
-        "tasks.report_tasks"
+        "tasks.report_tasks",
+        "tasks.export_tasks"
     ]
 )
 

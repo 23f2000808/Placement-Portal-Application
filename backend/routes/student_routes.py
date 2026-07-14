@@ -14,7 +14,7 @@ from services.cache_keys import (
     student_applications_key,
     available_drives_key
 )
-
+from tasks.export_tasks import export_student_applications
 import os
 
 from werkzeug.utils import secure_filename
@@ -523,3 +523,22 @@ def upload_resume():
         "resume_path": filename
     }), 200
 
+@student_bp.route("/export", methods=["POST"])
+@login_required
+def export_my_applications():
+
+    if current_user.role != "student":
+        return jsonify({
+            "error": "Unauthorized"
+        }), 403
+
+    student = current_user.student
+
+    task = export_student_applications.delay(
+        student.id
+    )
+
+    return jsonify({
+        "message": "Export started successfully.",
+        "task_id": task.id
+    }), 202

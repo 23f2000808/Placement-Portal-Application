@@ -360,9 +360,6 @@ GET  /api/admin/reports/<filename>
 
 **Deepak Kumar Pathak**
 
-B.Tech Computer Science & Engineering
-
-Tezpur University
 
 ---
 

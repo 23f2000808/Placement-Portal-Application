@@ -44,6 +44,18 @@ const editProfile = () => {
   router.push('/student/profile')
 }
 
+const exportApplications = async () => {
+  try {
+    const res = await api.post('/student/export')
+    alert(res.data.message)
+  } catch (err) {
+    alert(
+      err.response?.data?.error ||
+      'Export failed.'
+    )
+  }
+}
+
 onMounted(() => {
   loadDashboard()
 })
@@ -92,6 +104,13 @@ onMounted(() => {
             @click="editProfile"
           >
             Edit Profile
+          </button>
+
+          <button
+            class="btn btn-success"
+            @click="exportApplications"
+          >
+            Export Application History
           </button>
         </div>
       </div>

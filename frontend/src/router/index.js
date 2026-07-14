@@ -10,6 +10,7 @@ import CompanyDashboardView from '../views/CompanyDashboardView.vue'
 import CreateDriveView from '../views/CreateDriveView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import StudentProfileView from '../views/StudentProfileView.vue'
+import RegisterView from '../views/RegisterView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +25,11 @@ const router = createRouter({
       name: 'login',
       component: LoginView
     },
+    {
+    path: "/register",
+    name: "register",
+    component: RegisterView
+  },
     {
       path: '/student/dashboard',
       name: 'student-dashboard',
@@ -68,6 +74,11 @@ const router = createRouter({
       path: '/student/profile',
       name: 'student-profile',
       component: StudentProfileView
+    },
+    {
+      path: '/admin/reports',
+      component: () =>
+        import('../views/ReportsView.vue')
     }
   ]
 })

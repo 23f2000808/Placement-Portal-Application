@@ -28,6 +28,13 @@
         <p class="text-muted mb-0">
           Manage companies, students, placement drives and applications
         </p>
+
+        <router-link
+          class="btn btn-dark mt-3"
+          to="/admin/reports"
+        >
+          Reports
+        </router-link>
       </div>
 
       <!-- SUCCESS -->
@@ -282,6 +289,16 @@
             Registered Companies
           </h3>
 
+          <div class="mb-3">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Search companies by name or email..."
+              v-model="companySearch"
+              @input="fetchCompanies"
+            />
+          </div>
+
           <div
             v-if="companies.length === 0"
             class="alert alert-secondary"
@@ -370,6 +387,16 @@
           <h3 class="mb-3">
             Registered Students
           </h3>
+
+          <div class="mb-3">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Search students by name or email..."
+              v-model="studentSearch"
+              @input="fetchStudents"
+            />
+          </div>
 
           <div
             v-if="students.length === 0"
@@ -639,6 +666,8 @@ const companies = ref([])
 const students = ref([])
 const drives = ref([])
 const applications = ref([])
+const companySearch = ref('')
+const studentSearch = ref('')
 
 
 const pendingCompanies = computed(() => {
@@ -662,6 +691,28 @@ const ongoingDrives = computed(() => {
 })
 
 
+const fetchCompanies = async () => {
+  const res = await api.get('/admin/companies', {
+    params: {
+      search: companySearch.value
+    }
+  })
+
+  companies.value = res.data
+}
+
+
+const fetchStudents = async () => {
+  const res = await api.get('/admin/students', {
+    params: {
+      search: studentSearch.value
+    }
+  })
+
+  students.value = res.data
+}
+
+
 const loadDashboard = async () => {
   try {
     error.value = ''
@@ -674,8 +725,16 @@ const loadDashboard = async () => {
       applicationsResponse
     ] = await Promise.all([
       api.get('/admin/dashboard'),
-      api.get('/admin/companies'),
-      api.get('/admin/students'),
+      api.get('/admin/companies', {
+        params: {
+          search: companySearch.value
+        }
+      }),
+      api.get('/admin/students', {
+        params: {
+          search: studentSearch.value
+        }
+      }),
       api.get('/admin/drives'),
       api.get('/admin/applications')
     ])

@@ -110,9 +110,15 @@ const login = async () => {
             </div>
           </div>
 
-          <p class="text-center text-muted mt-3">
-            Students and companies can register for an account.
-          </p>
+          <div class="text-center mt-3">
+            <p>
+              Don't have an account?
+
+              <router-link to="/register">
+                Register Here
+              </router-link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

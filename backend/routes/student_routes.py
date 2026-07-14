@@ -5,9 +5,15 @@ from models.student import Student
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 
-from extensions import db
+from extensions import db, cache
 from models.application import Application
 from models.drive import Drive
+
+from services.cache_keys import (
+    student_dashboard_key,
+    student_applications_key,
+    available_drives_key
+)
 
 import os
 
@@ -25,7 +31,14 @@ def allowed_file(filename):
 
 @student_bp.route("/dashboard", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=lambda:
+        student_dashboard_key(current_user.id)
+)
 def student_dashboard():
+
+    print("Student dashboard fetched from DATABASE")
 
     # Only students can access this route
     if current_user.role != "student":
@@ -149,6 +162,9 @@ def update_student_profile():
 
     try:
         db.session.commit()
+        cache.delete(
+            student_dashboard_key(current_user.id)
+        )
     except Exception:
         db.session.rollback()
 
@@ -171,6 +187,10 @@ def update_student_profile():
 
 @student_bp.route("/drives", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=300,
+    key_prefix=available_drives_key()
+)
 def get_available_drives():
 
     if current_user.role != "student":
@@ -369,6 +389,18 @@ def apply_for_drive(drive_id):
     db.session.add(application)
     db.session.commit()
 
+    cache.delete(
+        student_dashboard_key(current_user.id)
+    )
+
+    cache.delete(
+        student_applications_key(current_user.id)
+    )
+
+    cache.delete(
+        available_drives_key()
+    )
+
     return jsonify({
         "message": "Application submitted successfully",
         "application_id": application.id,
@@ -377,6 +409,11 @@ def apply_for_drive(drive_id):
 
 @student_bp.route("/applications", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=lambda:
+        student_applications_key(current_user.id)
+)
 def get_student_applications():
 
     if current_user.role != "student":
@@ -477,6 +514,9 @@ def upload_resume():
     student.resume_path = filename
 
     db.session.commit()
+    cache.delete(
+        student_dashboard_key(current_user.id)
+    )
 
     return jsonify({
         "message": "Resume uploaded successfully",

@@ -1,19 +1,38 @@
-from flask import Blueprint, jsonify
+from datetime import datetime
+
+from flask import Blueprint, jsonify, current_app, request
 from flask_login import login_required, current_user
+from sqlalchemy import or_
 from models.user import User
 from models.drive import Drive
 from models.company import Company
-from extensions import db
+from extensions import db, cache
 from models.application import Application
 from models.student import Student
-
+from services.cache_keys import (
+    admin_dashboard_key,
+    admin_companies_key,
+    admin_students_key,
+    admin_drives_key,
+    admin_applications_key,
+    available_drives_key,
+    company_dashboard_key
+)
+import os
+from flask import send_from_directory
 
 admin_bp = Blueprint("admin", __name__)
 
 
 @admin_bp.route("/dashboard")
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=admin_dashboard_key
+)
 def admin_dashboard():
+
+    print("Admin dashboard fetched from DATABASE")
 
     # 🔥 ROLE CHECK HERE (NO utils needed)
     if current_user.role != "admin":
@@ -44,6 +63,9 @@ def approve_company(company_id):
 
     company.approval_status = "approved"
     db.session.commit()
+    cache.delete(admin_dashboard_key())
+    cache.delete(admin_companies_key())
+    cache.delete(company_dashboard_key(company.id))
 
     return jsonify({"message": "Company approved"})
 
@@ -66,6 +88,9 @@ def reject_company(company_id):
 
     company.approval_status = "rejected"
     db.session.commit()
+    cache.delete(admin_dashboard_key())
+    cache.delete(admin_companies_key())
+    cache.delete(company_dashboard_key(company.id))
 
     return jsonify({
         "message": "Company rejected successfully"
@@ -94,6 +119,10 @@ def blacklist_company(company_id):
     company.user.is_active = False
 
     db.session.commit()
+    cache.delete(admin_dashboard_key())
+    cache.delete(admin_companies_key())
+    cache.delete(company_dashboard_key(company.id))
+    cache.delete(available_drives_key())
 
     return jsonify({
         "message": "Company blacklisted successfully"
@@ -114,6 +143,10 @@ def approve_drive(drive_id):
 
     drive.status = "approved"
     db.session.commit()
+    cache.delete(admin_dashboard_key())
+    cache.delete(admin_drives_key())
+    cache.delete(available_drives_key())
+    cache.delete(company_dashboard_key(drive.company_id))
 
     return jsonify({"message": "Drive approved"})
 
@@ -132,6 +165,9 @@ def reject_drive(drive_id):
     drive.status = "rejected"
 
     db.session.commit()
+    cache.delete(admin_dashboard_key())
+    cache.delete(admin_drives_key())
+    cache.delete(company_dashboard_key(drive.company_id))
 
     return jsonify({
         "message": "Drive rejected successfully"
@@ -152,6 +188,10 @@ def close_drive(drive_id):
     drive.status = "closed"
 
     db.session.commit()
+    cache.delete(admin_dashboard_key())
+    cache.delete(admin_drives_key())
+    cache.delete(available_drives_key())
+    cache.delete(company_dashboard_key(drive.company_id))
 
     return jsonify({
         "message": "Drive closed successfully"
@@ -159,12 +199,29 @@ def close_drive(drive_id):
 
 @admin_bp.route("/companies", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=admin_companies_key,
+    unless=lambda: bool(request.args.get("search", "").strip())
+)
 def get_companies():
 
     if current_user.role != "admin":
         return jsonify({"error": "Unauthorized"}), 403
 
-    companies = Company.query.all()
+    search = request.args.get("search", "").strip()
+
+    query = Company.query
+
+    if search:
+        query = query.filter(
+            or_(
+                Company.company_name.ilike(f"%{search}%"),
+                Company.user.has(User.email.ilike(f"%{search}%"))
+            )
+        )
+
+    companies = query.all()
 
     result = []
 
@@ -203,6 +260,10 @@ def get_company(company_id):
 
 @admin_bp.route("/drives", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=admin_drives_key
+)
 def get_drives():
 
     if current_user.role != "admin":
@@ -250,12 +311,29 @@ def get_drive(drive_id):
 
 @admin_bp.route("/students", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=admin_students_key,
+    unless=lambda: bool(request.args.get("search", "").strip())
+)
 def get_students():
 
     if current_user.role != "admin":
         return jsonify({"error": "Unauthorized"}), 403
 
-    students = Student.query.all()
+    search = request.args.get("search", "").strip()
+
+    query = Student.query
+
+    if search:
+        query = query.filter(
+            or_(
+                Student.name.ilike(f"%{search}%"),
+                Student.user.has(User.email.ilike(f"%{search}%"))
+            )
+        )
+
+    students = query.all()
 
     result = []
 
@@ -315,6 +393,8 @@ def blacklist_student(student_id):
     student.user.is_active = False
 
     db.session.commit()
+    cache.delete(admin_students_key())
+    cache.delete(admin_dashboard_key())
 
     return jsonify({
         "message": "Student deactivated successfully"
@@ -348,6 +428,10 @@ def blacklist_user(user_id):
 
 @admin_bp.route("/applications")
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=admin_applications_key
+)
 def get_applications():
 
     if current_user.role != "admin":
@@ -365,3 +449,68 @@ def get_applications():
         })
 
     return jsonify(data), 200
+
+@admin_bp.route("/reports", methods=["GET"])
+@login_required
+def get_reports():
+
+    if current_user.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    reports_folder = os.path.join(
+        current_app.root_path,
+        "reports"
+    )
+
+    os.makedirs(reports_folder, exist_ok=True)
+
+    reports = []
+
+    for file in os.listdir(reports_folder):
+
+        if file.endswith(".csv"):
+
+            filepath = os.path.join(
+                reports_folder,
+                file
+            )
+
+            reports.append({
+
+                "filename": file,
+
+                "size": round(
+                    os.path.getsize(filepath) / 1024,
+                    2
+                ),
+
+                "created_at": datetime.fromtimestamp(
+                    os.path.getctime(filepath)
+                ).strftime("%d-%m-%Y %H:%M")
+
+            })
+
+    reports.sort(
+        key=lambda x: x["created_at"],
+        reverse=True
+    )
+
+    return jsonify(reports)
+
+@admin_bp.route("/reports/<filename>", methods=["GET"])
+@login_required
+def download_report(filename):
+
+    if current_user.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    reports_folder = os.path.join(
+        current_app.root_path,
+        "reports"
+    )
+
+    return send_from_directory(
+        reports_folder,
+        filename,
+        as_attachment=True
+    )

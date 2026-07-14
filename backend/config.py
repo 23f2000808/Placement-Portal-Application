@@ -1,5 +1,7 @@
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get(
@@ -16,6 +18,7 @@ class Config:
     REDIS_URL = "redis://localhost:6379/0"
     CACHE_TYPE = "RedisCache"
     CACHE_REDIS_URL = REDIS_URL
+    CACHE_DEFAULT_TIMEOUT = 300
 
     CELERY_BROKER_URL = REDIS_URL
     CELERY_RESULT_BACKEND = REDIS_URL
@@ -27,3 +30,13 @@ class Config:
     )
 
     ALLOWED_EXTENSIONS = {"pdf"}
+
+    # Gmail SMTP
+    MAIL_SERVER = "smtp.gmail.com"
+    MAIL_PORT = 587
+    MAIL_USE_TLS = True
+
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
+
+    MAIL_DEFAULT_SENDER = MAIL_USERNAME

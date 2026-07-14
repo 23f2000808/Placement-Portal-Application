@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import db
+from extensions import db, cache
 from models.company import Company
 from models.drive import Drive
 from models.application import Application
@@ -8,6 +8,12 @@ from models.student import Student
 from models.user import User
 from datetime import datetime
 from services.csv_export import export_applications_csv
+from services.cache_keys import (
+    company_dashboard_key,
+    drive_applications_key,
+    available_drives_key,
+    student_applications_key
+)
 
 company_bp = Blueprint("company", __name__)
 
@@ -73,11 +79,26 @@ def create_drive():
     # ----------------------------
     db.session.commit()
 
+    cache.delete(
+    company_dashboard_key(company.id)
+    )
+
+    cache.delete(
+        available_drives_key()
+    )
+
     return jsonify({"message": "Drive created, waiting for admin approval"})
 
 @company_bp.route("/drives/<int:drive_id>/applications", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=lambda:
+         drive_applications_key(request.view_args["drive_id"])
+)
 def get_drive_applications(drive_id):
+
+    print("Applicants fetched from DATABASE")
 
     # Only company users can access this API
     if current_user.role != "company":
@@ -223,6 +244,14 @@ def update_application_status(application_id):
 
     db.session.commit()
 
+    cache.delete(
+    drive_applications_key(drive.id)
+    )
+
+    cache.delete(
+        student_applications_key(application.student.user_id)
+    )
+
     return jsonify({
         "message": "Application status updated successfully",
         "application_id": application.id,
@@ -231,6 +260,11 @@ def update_application_status(application_id):
 
 @company_bp.route("/dashboard", methods=["GET"])
 @login_required
+@cache.cached(
+    timeout=120,
+    key_prefix=lambda:
+        company_dashboard_key(current_user.company.id)
+)
 def company_dashboard():
 
     if current_user.role != "company":
@@ -341,6 +375,14 @@ def complete_drive(drive_id):
     drive.status = "closed"
 
     db.session.commit()
+
+    cache.delete(
+    company_dashboard_key(company.id)
+    )
+
+    cache.delete(
+        available_drives_key()
+    )
 
     return jsonify({
         "message": "Drive marked as complete",

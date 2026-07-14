@@ -1,0 +1,32 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Flask/local backend state
+instance/
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+*.sqlite
+*.sqlite3
+reports/
+uploads/
+
+# Celery beat state
+celerybeat-schedule*
+
+# Logs
+logs/
+*.log
